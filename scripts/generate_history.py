@@ -57,9 +57,10 @@ Hard rules:
 - Then 5-7 facts, each 1-2 sentences, each genuinely surprising — not things most people already know.
 - Close with a one-line "follow for more" nudge.
 - Written for narration: short sentences, no headers, no bullet points, dramatic but not breathless.
-- For each fact (not the hook), pick a short visually-literal phrase a stock-footage search engine
+- For the hook AND each fact, pick a short visually-literal phrase a stock-footage search engine
   could find real b-roll for (e.g. "ancient roman ruins", "medieval castle interior", "old world map",
   "historical battlefield reenactment") — name the literal thing a camera would see, never abstract.
+  The hook needs its own visual cue just like every fact does — never leave it out.
 - Call the submit_history_video tool exactly once."""
 
 HISTORY_TOOL = {
@@ -74,6 +75,7 @@ HISTORY_TOOL = {
             "tags": {"type": "array", "items": {"type": "string"}, "description": "8-12 lowercase tags relevant to this video's era/theme"},
             "hashtags": {"type": "array", "items": {"type": "string"}, "description": "5-8 hashtags starting with #, always include #shorts"},
             "hook": {"type": "string", "description": "The opening hook line, 1 short sentence"},
+            "hook_visual_query": {"type": "string", "description": "Concrete, literal stock-footage search phrase for the hook itself"},
             "facts": {
                 "type": "array",
                 "minItems": 5,
@@ -88,7 +90,7 @@ HISTORY_TOOL = {
                 },
             },
         },
-        "required": ["premise", "title", "description", "tags", "hashtags", "hook", "facts"],
+        "required": ["premise", "title", "description", "tags", "hashtags", "hook", "hook_visual_query", "facts"],
     },
 }
 
