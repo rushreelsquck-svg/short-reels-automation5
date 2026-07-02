@@ -26,21 +26,47 @@ client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 STATE_SUFFIX = os.environ.get("STATE_SUFFIX", "")
 STATE_FILE = Path(__file__).resolve().parent.parent / "state" / f"used_premises{STATE_SUFFIX}.json"
 
-# A rotating pool of proven curiosity-driven opener styles, picked for this
-# specific genre. One gets sampled and handed to Claude as inspiration for
-# THIS video's hook line — adapted naturally, not recited verbatim.
+# A rotating pool of proven curiosity-driven opener styles. The data shows
+# "Was Stranger/More Advanced Than You Think" style titles are outperforming
+# others — these hook styles reflect that. One gets sampled per video and
+# given to Claude as inspiration, adapted naturally to fit the actual theme.
 HOOK_STYLES = [
-    "If you're seeing this, you're about to learn something they never taught you in school...",
-    "You won't believe this actually happened...", "This will change how you see history...",
-    "No one talks about this but...", "Historians don't like talking about this one...",
-    "The secret nobody shares (but I will)...", "This is the part of history they skip...",
-    "This feels illegal to know...", "Stop scrolling, you need to hear this...",
-    "What nobody tells you about...", "Here's something most people don't know...",
-    "This was buried for a reason...",
+    "was stranger than you think...",
+    "was darker than history books let on...",
+    "was more advanced than we give them credit for...",
+    "hid something historians are still debating...",
+    "had a secret most people never hear about...",
+    "did something that still shocks researchers today...",
+    "was built on a mystery nobody has fully solved...",
+    "collapsed for a reason that sounds impossible...",
+    "had technology that shouldn't have existed yet...",
+    "was stranger, darker, and more fascinating than you were taught...",
+]
+
+# Civilizations and eras with high YouTube search volume — prioritized so
+# the algorithm has more existing audience interest to tap into.
+HIGH_SEARCH_TOPICS = [
+    "ancient Egypt", "ancient Rome", "ancient Greece", "Vikings",
+    "medieval Europe", "the Mongol Empire", "ancient China", "the Aztecs",
+    "the Inca Empire", "ancient Mesopotamia", "the Ottoman Empire",
+    "ancient Japan", "the Byzantine Empire", "ancient Maya", "WWII",
+    "the Roman Empire", "ancient Sparta", "the Persian Empire",
 ]
 
 SYSTEM_PROMPT = """You write scripts for a daily YouTube Shorts channel called Vaults of History,
 sharing genuinely surprising, true, well-documented historical facts and stories.
+
+Title strategy (important for discovery):
+- Your best-performing titles follow the pattern "[Civilization/Era] Was [Surprising Claim]" —
+  e.g. "Ancient Egypt Was Stranger Than You Think" or "The Mongol Empire Was More Brutal Than
+  History Books Admit." Lead the title with the civilization or era name so it shows up in
+  search results for people already interested in that topic, then follow with a curiosity hook.
+- Prioritize high-search civilizations and eras: ancient Egypt, Rome, Greece, Vikings, Mongols,
+  Aztecs, Incas, medieval Europe, WWII, Sparta, Persia, Japan, China, Ottoman Empire, Maya.
+  These have existing audiences actively searching — a strong video on them gets amplified faster
+  than an equally strong video on an obscure topic.
+- The hook example you're given is a sentence fragment (e.g. "was stranger than you think") —
+  write the full hook line naturally adapting it to today's specific civilization/theme.
 
 Hard rules:
 - Every fact must be true and based on the real historical record — never invent, exaggerate, or
@@ -50,10 +76,8 @@ Hard rules:
   a myth, either skip it or explicitly frame it as "the myth vs. what really happened."
 - All wording must be entirely original — write your own explanation of each fact in your own words,
   never lightly reskin a specific list or article you've seen elsewhere.
-- Pick ONE era, civilization, or theme for the whole video (e.g. ancient Rome, WWII, medieval Europe,
-  lost civilizations, exploration age, ancient Egypt) so it feels cohesive. Vary it day to day.
-- Open with a short, punchy hook line in the spirit of the example styles you're given — adapt one
-  naturally to fit this video's actual theme, don't recite it generically.
+- Pick ONE era, civilization, or theme for the whole video so it feels cohesive. Vary it day to day.
+- Open with a short, punchy hook line naturally incorporating the hook example you're given.
 - Then 5-7 facts, each 1-2 sentences, each genuinely surprising — not things most people already know.
 - Close with a one-line "follow for more" nudge.
 - Written for narration: short sentences, no headers, no bullet points, dramatic but not breathless.
@@ -84,7 +108,7 @@ HISTORY_TOOL = {
                     "type": "object",
                     "properties": {
                         "narration": {"type": "string", "description": "1-2 sentences for this historical fact"},
-                        "visual_query": {"type": "string", "description": "Concrete, literal stock-footage search phrase for this fact"},
+                        "visual_query": {"type": "string", "description": "Specific 4-7 word stock-footage search phrase that precisely matches this fact"},
                     },
                     "required": ["narration", "visual_query"],
                 },
@@ -114,7 +138,20 @@ def generate_history_video() -> dict:
         "Avoid these recent eras/themes — pick a different one:\n" + "\n".join(f"- {p}" for p in used_premises[-15:])
         if used_premises else "No prior themes to avoid yet."
     )
-    sample_hooks = "\n".join(f"- {h}" for h in random.sample(HOOK_STYLES, 4))
+    # Pick a random hook style and a high-search topic suggestion
+    hook_sample = random.choice(HOOK_STYLES)
+    topic_suggestion = random.choice(HIGH_SEARCH_TOPICS)
+
+    user_prompt = f"""Write today's history video.
+
+{avoid_text}
+
+Suggested topic (you can use this or pick a different high-search civilization/era if it was covered recently): {topic_suggestion}
+
+Hook style to adapt for the opening line (this is a sentence fragment — work it into a natural full sentence matching the topic):
+"{hook_sample}"
+
+Example of how to use this: if the topic is "ancient Rome" and the hook fragment is "was stranger than you think", a good opening hook line might be: "Ancient Rome was far stranger than history class ever let on." Adapt it naturally — don't recite it verbatim."""
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
@@ -122,10 +159,7 @@ def generate_history_video() -> dict:
         system=SYSTEM_PROMPT,
         tools=[HISTORY_TOOL],
         tool_choice={"type": "tool", "name": "submit_history_video"},
-        messages=[{
-            "role": "user",
-            "content": f"Write today's history video.\n\n{avoid_text}\n\nSome example hook styles for inspiration (adapt, don't recite verbatim):\n{sample_hooks}",
-        }],
+        messages=[{"role": "user", "content": user_prompt}],
     )
 
     tool_use_block = next(b for b in response.content if b.type == "tool_use")
