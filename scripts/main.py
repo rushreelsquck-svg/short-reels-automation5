@@ -43,6 +43,15 @@ def run():
             "number": i + 1,
         })
     print(f"      -> {len(scenes)} scenes ready (hook + {len(video['facts'])} facts)")
+    # Voiced outro
+    outro_audio = str(WORKDIR / "scene_outro.mp3")
+    generate_voiceover("Follow for more buried history uncovered every single day.", outro_audio)
+    scenes.append({
+        "audio_path": outro_audio,
+        "visual_query": "ancient ruins dramatic sky sunrise",
+        "caption_text": "Follow for more buried history uncovered every single day.",
+        "number": None,
+    })
 
     print("[3/5] Building the video...")
     video_path = str(WORKDIR / "output.mp4")
